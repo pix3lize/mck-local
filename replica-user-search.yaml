@@ -1,0 +1,49 @@
+apiVersion: mongodb.com/v1
+kind: MongoDBSearch
+metadata:
+  name: replica-user
+  namespace: mongodb
+spec:
+  version: "0.53.1"
+  source:
+    mongodbResourceRef:
+      name: replica-user
+      namespace: mongodb
+    username: search-sync-source
+    passwordSecretRef:
+      name: replica-user-admin-password
+      key: password
+---
+apiVersion: mongodb.com/v1
+kind: MongoDBUser
+metadata:
+  name: replica-user-root-admin
+  namespace: mongodb
+spec:
+  username: mdb-admin
+  db: admin
+  mongodbResourceRef:
+    name: replica-user
+  passwordSecretKeyRef:
+    name: replica-user-admin-password
+    key: password
+  roles:
+  - name: root
+    db: admin
+---
+apiVersion: mongodb.com/v1
+kind: MongoDBUser
+metadata:
+  name: replica-user-search-sync-source-user
+  namespace: mongodb
+spec:
+  username: search-sync-source
+  db: admin
+  mongodbResourceRef:
+    name: replica-user
+  passwordSecretKeyRef:
+    name: replica-user-admin-password
+    key: password
+  roles:
+  - name: searchCoordinator
+    db: admin

@@ -1,0 +1,39 @@
+---
+apiVersion: mongodb.com/v1
+kind: MongoDB
+metadata:
+  name: replica-external
+  namespace: mongodb
+spec:
+  members: 3
+  version: 8.0.14-ent
+  type: ReplicaSet
+  opsManager:
+    configMapRef:
+      name: my-project
+  credentials: organization-secret
+  persistent: true
+  security:
+    tls:
+      enabled: true
+      ca: mongo-ca
+    certsSecretPrefix: mdb
+  connectivity:
+    replicaSetHorizons:
+      # So that clients outside the K8S cluster can access the cluster
+      # Must match externalService.annotations.external-dns.alpha.kubernetes.io/hostname
+      # REPLACE THIS - Change to your own Route 53 domain
+      - "external-horizon": "replica-external-0.mongodb.local:31945"
+      - "external-horizon": "replica-external-1.mongodb.local:32217"
+      - "external-horizon": "replica-external-2.mongodb.local:30523"
+  
+  externalAccess:
+    externalService:
+      spec:
+        type: NodePort # default is LoadBalancer
+        port: 27017
+  agent:
+    startupOptions:
+      # Since we're using self-signed (untrusted) certs for Ops Manager
+      # Configure the agent to ignore invalid Ops Manager Server Certificate
+      tlsRequireValidMMSServerCertificates: "false"

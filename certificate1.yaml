@@ -1,0 +1,28 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mongodb-external
+  namespace: mongodb
+spec:
+  isCA: false
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  dnsNames:
+  - replica-external-0.replica-external-svc.mongodb.svc.cluster.local
+  - replica-external-1.replica-external-svc.mongodb.svc.cluster.local
+  - replica-external-2.replica-external-svc.mongodb.svc.cluster.local
+  - replica-external-0.mongodb.local
+  - replica-external-1.mongodb.local
+  - replica-external-2.mongodb.local
+  secretName: mdb-replica-external-cert
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 4096
+  issuerRef:
+    name: mongodb-root-ca-rsa
+    kind: ClusterIssuer
+  usages:
+  - server auth
+  - client auth

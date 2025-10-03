@@ -1,0 +1,28 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mongodb-user
+  namespace: mongodb
+spec:
+  isCA: false
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  dnsNames:
+  - replica-user-0.replica-user-svc.mongodb.svc.cluster.local
+  - replica-user-1.replica-user-svc.mongodb.svc.cluster.local
+  - replica-user-2.replica-user-svc.mongodb.svc.cluster.local
+  - replica-user-0.mongodb.local
+  - replica-user-1.mongodb.local
+  - replica-user-2.mongodb.local
+  secretName: mdb-replica-user-cert
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 4096
+  issuerRef:
+    name: mongodb-root-ca-rsa
+    kind: ClusterIssuer
+  usages:
+  - server auth
+  - client auth

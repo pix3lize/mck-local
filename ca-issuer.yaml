@@ -1,0 +1,44 @@
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+  namespace: cert-manager
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mongodb-root-ca-cert-rsa
+  namespace: cert-manager
+spec:
+  isCA: true
+  duration: 87600h0m0s
+  commonName: "MongoDB Singapore SC Root CA RSA"
+  secretName: mongodb-root-ca-cert-rsa
+  subject:
+    organizations:
+      - "MongoDB"
+    organizationalUnits:
+      - "Solutions Consulting"
+    countries:
+      - "Singapore"
+    localities:
+      - "Singapore"
+  privateKey:
+    algorithm: RSA # Have to be RSA. Else queryable backup will not work.
+    size: 4096
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: mongodb-root-ca-rsa
+  namespace: cert-manager
+spec:
+  ca:
+    secretName: mongodb-root-ca-cert-rsa # will look for the secret in the cert-manager namespace
+---

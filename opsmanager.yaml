@@ -1,0 +1,55 @@
+---
+apiVersion: mongodb.com/v1
+kind: MongoDBOpsManager
+metadata:
+  name: ops-manager
+  namespace: mongodb
+spec:
+  replicas: 1
+  version: 8.0.14
+  adminCredentials: ops-manager-admin-secret
+  configuration:
+    mms.fromEmailAddr: "admin@example.com"
+    # Configure Ops Manager to be accessible
+    automation.versions.source: "mongodb"
+    mms.centralUrl: "http://ops-manager-svc.mongodb.svc.cluster.local:8080"
+  applicationDatabase:
+    members: 3
+    version: 8.0.14-ent
+    additionalMongodConfig:
+      operationProfiling:
+        mode: slowOp
+  # Add external connectivity configuration
+  externalConnectivity:
+    type: LoadBalancer  # or NodePort for local development
+    port: 8080
+---
+# Create a Service to expose Ops Manager
+apiVersion: v1
+kind: Service
+metadata:
+  name: ops-manager-svc
+  namespace: mongodb
+spec:
+  type: LoadBalancer  # Use NodePort for local k3d cluster
+  ports:
+  - name: ops-manager
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: ops-manager-svc
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ops-manager-admin-secret
+  namespace: mongodb
+type: Opaque
+stringData:
+  Username: "admin"
+  Password: "password123"  # Change this to a secure password
+  FirstName: "Admin"
+  LastName: "User"
+  Email: "admin@example.com"

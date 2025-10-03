@@ -1,0 +1,49 @@
+---
+apiVersion: mongodb.com/v1
+kind: MongoDB
+metadata:
+  name: replica-user
+  namespace: mongodb
+spec:
+  members: 3
+  version: 8.0.14-ent
+  type: ReplicaSet
+  opsManager:
+    configMapRef:
+      name: my-project2
+  credentials: organization-secret2
+  persistent: true
+  security:
+    authentication:
+      enabled: true
+      modes: ["SCRAM"]
+---
+apiVersion: mongodb.com/v1
+kind: MongoDBUser # Note: MongoDBUser is for the Enterprise Operator
+metadata:
+  name: replica-user-admin # name of the user
+  namespace: mongodb
+spec:
+  username: admin
+  db: admin
+  mongodbResourceRef:
+    name: replica-user # reference to the MongoDB resource
+  roles:
+    - name: dbAdminAnyDatabase
+      db: admin
+    - name: readWriteAnyDatabase
+      db: admin
+    - name: userAdminAnyDatabase
+      db: admin
+  passwordSecretKeyRef:
+    name: replica-user-admin-password # the name of the secret that stores the password
+    key: password # the key in the secret that stores the password
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: replica-user-admin-password
+  namespace: mongodb
+type: Opaque
+data:
+  password: YWRtaW5wYXNzd29yZA== # adminpassword (base64 encoded)
