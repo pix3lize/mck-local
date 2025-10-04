@@ -29,7 +29,7 @@ The easiest to install k3d is using homebrew
 
 ```shell
 k3d cluster create mongocluster --agents 3 -p\
- "8080:8080@server:0" --network local
+ "8081:8080@server:0" --network local
 ```
 ![alt text](img/container.png)
 
