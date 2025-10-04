@@ -1,0 +1,59 @@
+apiVersion: mongodb.com/v1
+kind: MongoDBSearch
+metadata:
+  name: replica-external
+  namespace: mongodb
+spec:
+  version: "0.53.1"
+  source:
+    mongodbResourceRef:
+      name: replica-external
+      namespace: mongodb
+    # must match the user created below it will add searchCoordinator role
+    username: search-sync-source 
+    passwordSecretRef:
+      name: replica-external2-admin-password
+      key: password
+---
+apiVersion: mongodb.com/v1
+kind: MongoDBUser
+metadata:
+  name: replica-external2-root-admin
+  namespace: mongodb
+spec:
+  username: mdb-admin
+  db: admin
+  mongodbResourceRef:
+    name: replica-external
+  passwordSecretKeyRef:
+    name: replica-external2-admin-password
+    key: password
+  roles:
+  - name: root
+    db: admin
+---
+apiVersion: mongodb.com/v1
+kind: MongoDBUser
+metadata:
+  name: replica-user-search-sync-source-user
+  namespace: mongodb
+spec:
+  username: search-sync-source
+  db: admin
+  mongodbResourceRef:
+    name: replica-external
+  passwordSecretKeyRef:
+    name: replica-external2-admin-password
+    key: password
+  roles:
+  - name: searchCoordinator
+    db: admin
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: replica-external2-admin-password
+  namespace: mongodb
+type: Opaque
+data:
+  password: YWRtaW5wYXNzd29yZA==

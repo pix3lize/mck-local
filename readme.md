@@ -5,13 +5,21 @@ Since MongoDB Connector for Kubernetes 1.3 support ARM processor.
 
 This repository is a guide for those who would like to install MCK locally on your Macbook (ARM) utilising docker, k3d, kubectl, and k9s 
 
-#### Pre-requisite 
+#### 🦺 Pre-requisite 
 - Homebrew installed on your mac as this make life easier to install other dependencies
 - Install docker, kubectl, helm, k3d, and k9s 
 - Good internet connection 
 - Have a chat GPT or your prefer AI friend handy in case if you facing an issue 
 
-### K3D 
+#### 🧩 Alias and kubectl context
+- Please ensure that the kubectl context is set to appropriate kubernetes config
+- Please use this alias for this tutorial 
+```shell
+alias kba="kubectl apply -f"
+alias kbd="kubectl delete -f"
+```
+
+## K3D 
 
 ##### Create k3d cluster locally
 
@@ -52,6 +60,8 @@ helm upgrade --install mongodb-kubernetes-operator mongodb/mongodb-kubernetes \
 ```shell
 kba opsmanager.yaml
 ```
+- ⚠️ Please be warn this process might be taking quite long, if you have a VPN behind would recommend to disabled it 
+
 This definition will create a ops-manager-svc load balancer services and ops-manager-svc-ext services 
 
 To connect within kubernetes internally it use default host name which 
@@ -69,7 +79,7 @@ Please create the account and start prepare the ops manager to produce config ma
 
 ![alt text](img/image.png)
 
-```⚠️ Please ensure you add the correct ip address range on this. You can refer to services on your kubernetes```
+- ⚠️ Please ensure you add the correct ip address range on this. You can refer to services on your kubernetes
 
 Run this command if you're running with k3d 
 ```shell
@@ -89,7 +99,7 @@ I combined this secret and config map into project.yaml, so please run this :
 kba project1.yaml
 ```
 
-## Jetstack / Certificate Setup
+## 🔐 Jetstack / Certificate Setup
 
 ##### Install jetstack io to allow self sign certificate on kubernetes
 ```shell
@@ -130,7 +140,7 @@ kba certificate1.yaml
 kba replica-external.yaml
 ```
 
-⚠️ Please be warn this process might be taking quite long, if you have a VPN behind would recommend to disabled it 
+- ⚠️ Please be warn this process might be taking quite long, if you have a VPN behind would recommend to disabled it 
 
 Once it's completed this would look like this from Ops Manager
 
@@ -145,23 +155,27 @@ replica-external-0.replica-external-svc.mongodb.svc.cluster.local:27017\
 /?replicaSet=replica-external&tls=true&tlsAllowInvalidCertificates=true"
 ```
 
------------- 
+## How access the DB it externally 
 
-#### How access the DB it externally 
+##### Create the node port services
+```shell
+kba services-nodeport.yaml
+```
 
-This method is quite interesting as we need to perhaps edit/update the node port number on k3d 
+- ⚠️ Please take note that if you modify the replica-external or in progress of updating make sure that the process is completed and run this ```kba services-nodeport.yaml``` again
 
 Please refer to the services created after running this query 
 
 ![alt text](img/nodeport.png)
 
-Follow your port on the picture it's ```31945, 32217, and 30523```.
+
+Follow your port on the picture it's ```30001, 30002, and 30003```.
 
 Run this command to update k3d 
 ```shell 
-k3d cluster edit mongocluster --port-add "31945:31945@server:0"
-k3d cluster edit mongocluster --port-add "32217:32217@server:0"
-k3d cluster edit mongocluster --port-add "30523:30523@server:0"
+k3d cluster edit mongocluster --port-add "30001:30001@server:0"
+k3d cluster edit mongocluster --port-add "30002:30002@server:0"
+k3d cluster edit mongocluster --port-add "30003:30003@server:0"
 ```
 
 Once it's done plese update your /etc/hosts file on macbook 
@@ -178,53 +192,28 @@ You also need to update the horizon on ```replica-external.yaml``` to make it wo
       # So that clients outside the K8S cluster can access the cluster
       # Must match externalService.annotations.external-dns.alpha.kubernetes.io/hostname
       # REPLACE THIS - Change to your own Route 53 domain
-      - "external-horizon": "replica-external-0.mongodb.local:31945"
-      - "external-horizon": "replica-external-1.mongodb.local:32217"
-      - "external-horizon": "replica-external-2.mongodb.local:30523"
+      - "external-horizon": "replica-external-0.mongodb.local:30001"
+      - "external-horizon": "replica-external-1.mongodb.local:30002"
+      - "external-horizon": "replica-external-2.mongodb.local:30003"
 ```
 
 This would be the connection string 
 
 ```shell
-mongodb://ituser:ituser@replica-external-0.mongodb.local:31945\
-,replica-external-1.mongodb.local:32217\
-,replica-external-2.mongodb.local:30523\
+mongodb://ituser:ituser@replica-external-0.mongodb.local:30001\
+,replica-external-1.mongodb.local:30002\
+,replica-external-2.mongodb.local:30003\
 /?tls=true&tlsAllowInvalidCertificates=true&\
 replicaSet=replica-external
-```
------
-### Add second project with authentication 
-
-The new project name would be MongoDBUser, below is how it looks like 
-
-![alt text](img/project2.png)
-
-#### Provision the project
-```shell
-kba project2.yaml
-```
-
-#### Install the replica-user
-```shell
-kba replica-user.yaml
-```
-
-The connection string as follow 
-```shell
-mongodb://admin:adminpassword\
-@replica-user-0.replica-user-svc.mongodb.svc.cluster.local:27017,\
-replica-user-1.replica-user-svc.mongodb.svc.cluster.local:27017,\
-replica-user-2.replica-user-svc.mongodb.svc.cluster.local:27017/\
-?replicaSet=replica-user
 ```
 
 ## Install MongoDBSearch resources with MCK 
 
-For MongoDB Search and Vector Search, we're going to use replica-user cluster and MongoDBUser project.
+For MongoDB Search and Vector Search, we're going to use replica-external cluster and MongoDBExternal project.
 
 #### Install MongoDB Search 
 ```shell
-kba replica-user-search.yaml
+kba replica-external-search.yaml
 ```
 This resources will create two users : mdb-admin (root access) and search-sync-source. 
 
@@ -247,12 +236,11 @@ curl https://atlas-education.s3.amazonaws.com/sample_mflix.archive \
 ##### Mongorestore the data 
 Configure the enviroment variable, now we're using the root user which is mdb-admin
 ```shell
-export MDB_CONNECTION_STRING=\
-mongodb://mdb-admin:adminpassword\
-@replica-user-0.replica-user-svc.mongodb.svc.cluster.local:27017,\
-replica-user-1.replica-user-svc.mongodb.svc.cluster.local:27017,\
-replica-user-2.replica-user-svc.mongodb.svc.cluster.local:27017/\
-?replicaSet=replica-user
+export MDB_CONNECTION_STRING="mongodb://mdb-admin:adminpassword@\
+replica-external-0.replica-external-svc.mongodb.svc.cluster.local:27017,\
+replica-external-1.replica-external-svc.mongodb.svc.cluster.local:27017,\
+replica-external-2.replica-external-svc.mongodb.svc.cluster.local:27017\
+/?replicaSet=replica-external&tls=true&tlsInsecure=true"
 ```
 
 Mongosh to cluster
@@ -276,13 +264,14 @@ mongorestore \
 mongosh --quiet \
     "${MDB_CONNECTION_STRING}" \
     --eval "use sample_mflix" \
-    --eval 'db.movies.createSearchIndex("default",\
-     { mappings: { dynamic: true } });
+    --eval 'db.movies.createSearchIndex("default", { mappings: { dynamic: true } });'
 ```
 
 ##### Run the MongoDB Search query 
-```js 
+```js
 use sample_mflix;
+```
+```js 
 db.movies.aggregate([
   {
     $search: {
@@ -334,6 +323,31 @@ This would be how it looks like
 
 ![alt text](img/resultsearch.png)
 
+## Additional Project  
+##### Project 2 - replica-user (non-tls) with authentication
+
+The new project name would be MongoDBUser, below is how it looks like 
+
+![alt text](img/project2.png)
+
+#### Provision the project
+```shell
+kba project2.yaml
+```
+
+#### Install the replica-user
+```shell
+kba replica-user.yaml
+```
+
+The connection string as follow 
+```shell
+mongodb://admin:adminpassword\
+@replica-user-0.replica-user-svc.mongodb.svc.cluster.local:27017,\
+replica-user-1.replica-user-svc.mongodb.svc.cluster.local:27017,\
+replica-user-2.replica-user-svc.mongodb.svc.cluster.local:27017/\
+?replicaSet=replica-user
+```
 
 ## License
 

@@ -18,22 +18,51 @@ spec:
       enabled: true
       ca: mongo-ca
     certsSecretPrefix: mdb
+    authentication:
+      enabled: true
+      modes: ["SCRAM"]    
   connectivity:
     replicaSetHorizons:
       # So that clients outside the K8S cluster can access the cluster
       # Must match externalService.annotations.external-dns.alpha.kubernetes.io/hostname
       # REPLACE THIS - Change to your own Route 53 domain
-      - "external-horizon": "replica-external-0.mongodb.local:31945"
-      - "external-horizon": "replica-external-1.mongodb.local:32217"
-      - "external-horizon": "replica-external-2.mongodb.local:30523"
-  
-  externalAccess:
-    externalService:
-      spec:
-        type: NodePort # default is LoadBalancer
-        port: 27017
+      - "external-horizon": "replica-external-0.mongodb.local:30001"
+      - "external-horizon": "replica-external-1.mongodb.local:30002"
+      - "external-horizon": "replica-external-2.mongodb.local:30003"
+
+  # externalAccess:
+  #   externalService:
+  #     spec:
+  #       type: NodePort # default is LoadBalancer
+  #       port: 27017
   agent:
     startupOptions:
       # Since we're using self-signed (untrusted) certs for Ops Manager
       # Configure the agent to ignore invalid Ops Manager Server Certificate
       tlsRequireValidMMSServerCertificates: "false"
+---
+apiVersion: mongodb.com/v1
+kind: MongoDBUser # Note: MongoDBUser is for the Enterprise Operator
+metadata:
+  name: replica-external-admin # name of the user
+  namespace: mongodb
+spec:
+  username: ituser
+  db: admin
+  mongodbResourceRef:
+    name: replica-external # reference to the MongoDB resource
+  roles:
+  - name: root
+    db: admin
+  passwordSecretKeyRef:
+    name: replica-external-admin-password # the name of the secret that stores the password
+    key: password # the key in the secret that stores the password
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: replica-external-admin-password
+  namespace: mongodb
+type: Opaque
+data:
+  password: aXR1c2Vy

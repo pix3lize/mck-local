@@ -7,9 +7,9 @@ data:
   baseUrl: http://ops-manager-svc.mongodb.svc.cluster.local:8080
 
   # Optional Parameters
-  projectName: MongoDBUser
+  projectName: MongoDBUser # Porject name 
 
-  orgId: 68de226b000c5b1d29192859
+  orgId: 68dfb39bb90bc7368bccfab9 # Changed to new orgId on Ops Manager
 ---
 apiVersion: v1
 kind: Secret
@@ -17,5 +17,5 @@ metadata:
   name: organization-secret2
   namespace: mongodb
 stringData:
-  user: bjlzmsdp
-  publicApiKey: 2dda0ab2-5aa2-4840-8d02-3de46d531b60
+  user: secerwjx # Changed to new public key on Access Manager on Ops Manager
+  publicApiKey: 64a9ea0d-31c3-44a5-8a38-5a5707384030 # Changed to new private key on Access Manager on Ops Manager
