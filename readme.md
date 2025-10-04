@@ -1,107 +1,106 @@
-## How to Install MongoDB Connector for Kubernetes (MCK)  locally 
+# How to Install MongoDB Connector for Kubernetes (MCK) Locally
 
-#### Background 
-Since MongoDB Connector for Kubernetes 1.3 support ARM processor.  
+## Background 
+MongoDB Connector for Kubernetes version 1.3+ supports ARM processors. This repository provides a guide for installing MCK locally on your MacBook (ARM) using Docker, k3d, kubectl, and k9s.
 
-This repository is a guide for those who would like to install MCK locally on your Macbook (ARM) utilising docker, k3d, kubectl, and k9s 
+## 🦺 Prerequisites 
+Before starting, make sure you have:
+- **Homebrew** installed on your Mac (makes installing dependencies easier)
+- **Required tools**: Docker, kubectl, helm, k3d, and k9s
+- **Good internet connection** 
+- **AI assistant** (ChatGPT or similar) available for troubleshooting
 
-#### 🦺 Pre-requisite 
-- Homebrew installed on your mac as this make life easier to install other dependencies
-- Install docker, kubectl, helm, k3d, and k9s 
-- Good internet connection 
-- Have a chat GPT or your prefer AI friend handy in case if you facing an issue 
-
-#### 🧩 Alias and kubectl context
-- Please ensure that the kubectl context is set to appropriate kubernetes config
-- Please use this alias for this tutorial 
+## 🧩 Setup: Aliases and kubectl Context
+1. **Set kubectl context** to the appropriate Kubernetes config
+2. **Add these useful aliases** for the tutorial:
 ```shell
 alias kba="kubectl apply -f"
 alias kbd="kubectl delete -f"
 ```
 
-## K3D 
+## K3D Setup
 
-##### Create k3d cluster locally
+### Create k3d Cluster Locally
 
-This setup assuming that you already install docker and kubectl 
+**Prerequisites**: Docker and kubectl must be installed.
 
-The easiest to install k3d is using homebrew
-
+**Install k3d** using Homebrew:
 ```shell
-k3d cluster create mongocluster --agents 3 -p\
- "8081:8080@server:0" --network local
+brew install k3d
 ```
-![alt text](img/container.png)
 
-## Mongodb Connector for Kubernetes (MCK) Setup
-##### Install mongodb connector for kubernetes
+**Create the cluster**:
+```shell
+k3d cluster create mongocluster --agents 3 -p "8081:8080@server:0" --network local
+```
+![Container Setup](img/container.png)
 
-For more information please look into official document : https://www.mongodb.com/docs/kubernetes/current/kind-quick-start/
+## MongoDB Connector for Kubernetes (MCK) Setup
 
-##### Using helm 
+For detailed information, see the [official documentation](https://www.mongodb.com/docs/kubernetes/current/kind-quick-start/).
+
+#### Step 1: Add MongoDB Helm Repository
 ```shell
 helm repo add mongodb https://mongodb.github.io/helm-charts
 ```
 
-##### Install the CRD (Custom Resources Definition)
+#### Step 2: Install Custom Resource Definitions (CRDs)
 ```shell
-kubectl apply\
- -f https://raw.githubusercontent.com/mongodb/mongodb-kubernetes/1.4.0/public/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/mongodb/mongodb-kubernetes/1.4.0/public/crds.yaml
 ```
 
-##### Install with helm with mongodb namespace (this is best practise)
+#### Step 3: Install MongoDB Kubernetes Operator
 ```shell
 helm upgrade --install mongodb-kubernetes-operator mongodb/mongodb-kubernetes \
 --namespace mongodb \
 --create-namespace
 ```
 
-##### Run the opsmanager.yaml
+#### Step 4: Deploy OpsManager
 ```shell
 kba opsmanager.yaml
 ```
-- ⚠️ Please be warn this process might be taking quite long, if you have a VPN behind would recommend to disabled it 
 
-This definition will create a ops-manager-svc load balancer services and ops-manager-svc-ext services 
+> ⚠️ **Warning**: This process may take a long time. If you're using a VPN, consider disabling it during installation.
 
-To connect within kubernetes internally it use default host name which 
+This creates:
+- `ops-manager-svc` load balancer service
+- `ops-manager-svc-ext` service
 
-http://ops-manager-svc.mongodb.svc.cluster.local:8080
+**Internal cluster access**: `http://ops-manager-svc.mongodb.svc.cluster.local:8080`
 
-
-##### Forward port 8080 to localhost 
-```shell
-kubectl port-forward service/ops-manager-svc 8080:8080 -n mongodb
+#### Step 5: Access OpsManager in Browser
+Since we forwarded port 8080 to 8081 on the host:
+```
+http://localhost:8081
 ```
 
-##### Provision project 
-Please create the account and start prepare the ops manager to produce config map that will be used by MongoDB resource to connect to the ops manager 
+#### Step 6: Configure OpsManager Project
+1. **Create an account** in OpsManager
+2. **Configure the project** to generate the config map for MongoDB resources
 
-![alt text](img/image.png)
+![OpsManager Setup](img/image.png)
 
-- ⚠️ Please ensure you add the correct ip address range on this. You can refer to services on your kubernetes
+> ⚠️ **Important**: Add the correct IP address range. Check your Kubernetes services for reference.
 
-Run this command if you're running with k3d 
+**For k3d clusters**, run this command to get the CIDR range:
 ```shell
-kubectl get nodes -o jsonpath=\
-'{range .items[*]}{.metadata.name}{"\t"}{.spec.podCIDR}{"\n"}{end}'
+kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.podCIDR}{"\n"}{end}'
 ```
 
-![alt text](img/cidr.png)
+![CIDR Information](img/cidr.png)
 
-It will produce this config map setup and secret 
-
-![alt text](img/configmap.png)
-
-I combined this secret and config map into project.yaml, so please run this : 
-
+#### Step 7: Apply Project Configuration
+The setup generates a config map and secret. Apply the combined configuration:
 ```shell
 kba project1.yaml
 ```
 
-## 🔐 Jetstack / Certificate Setup
+![Config Map Setup](img/configmap.png)
 
-##### Install jetstack io to allow self sign certificate on kubernetes
+## 🔐 Certificate Setup with Jetstack
+
+#### Step 1: Install cert-manager
 ```shell
 helm repo add jetstack https://charts.jetstack.io
 ```
@@ -111,145 +110,139 @@ helm install cert-manager jetstack/cert-manager \
   --namespace cert-manager --set crds.enabled=true --create-namespace
 ```
 
-##### Create custom CA (Certificate Authority)
-
+#### Step 2: Create Custom Certificate Authority (CA)
 ```shell
 kba ca-issuer.yaml
 ```
 
-##### Get the CA certificate 
+#### Step 3: Extract CA Certificate
 ```shell
-kubectl get secret mongodb-root-ca-cert-rsa -n \
-cert-manager -o jsonpath='{.data.tls\.crt}' | base64 -d > ca.crt
+kubectl get secret mongodb-root-ca-cert-rsa -n cert-manager -o jsonpath='{.data.tls\.crt}' | base64 -d > ca.crt
 ```
 
-##### Create config map for CA certificate
+#### Step 4: Create ConfigMap for CA Certificate
 ```shell
 kubectl create configmap mongo-ca -n mongodb --from-file=ca-pem=ca.crt
 ```
 
-## Install MongoDB resources with MCK
+## Install MongoDB Resources with MCK
 
-##### Install certificate for mongodb database 
+#### Step 1: Install MongoDB Certificate
 ```shell
 kba certificate1.yaml
 ```
 
-##### Install replica-external with NodePort 
+#### Step 2: Deploy MongoDB Replica Set
 ```shell
 kba replica-external.yaml
 ```
 
-- ⚠️ Please be warn this process might be taking quite long, if you have a VPN behind would recommend to disabled it 
+> ⚠️ **Warning**: This process may take a long time. Consider disabling VPN if you're behind one.
 
-Once it's completed this would look like this from Ops Manager
+**Result**: Your replica set will appear in OpsManager:
 
-![alt text](img/replicaexternal.png)
+![Replica External](img/replicaexternal.png)
 
-To access it internally please use this : 
+#### Step 3: Internal Database Access
+Use this connection string for internal cluster access:
 ```shell
-mongosh "mongodb://ituser:ituser@\
-replica-external-0.replica-external-svc.mongodb.svc.cluster.local:27017\
-,replica-external-1.replica-external-svc.mongodb.svc.cluster.local:27017\
-,replica-external-2.replica-external-svc.mongodb.svc.cluster.local:27017\
-/?replicaSet=replica-external&tls=true&tlsAllowInvalidCertificates=true"
+mongosh "mongodb://ituser:ituser@replica-external-0.replica-external-svc.mongodb.svc.cluster.local:27017,replica-external-1.replica-external-svc.mongodb.svc.cluster.local:27017,replica-external-2.replica-external-svc.mongodb.svc.cluster.local:27017/?replicaSet=replica-external&tls=true&tlsAllowInvalidCertificates=true"
 ```
 
-## How access the DB it externally 
+## External Database Access Setup
 
-##### Create the node port services
+#### Step 1: Create NodePort Services
 ```shell
 kba services-nodeport.yaml
 ```
 
-- ⚠️ Please take note that if you modify the replica-external or in progress of updating make sure that the process is completed and run this ```kba services-nodeport.yaml``` again
+> ⚠️ **Note**: If you modify the replica-external deployment, wait for completion and re-run this command.
 
-Please refer to the services created after running this query 
+**Check the created services**:
 
-![alt text](img/nodeport.png)
+![NodePort Services](img/nodeport.png)
 
+Note your ports (example: `30001, 30002, 30003`).
 
-Follow your port on the picture it's ```30001, 30002, and 30003```.
-
-Run this command to update k3d 
+#### Step 2: Configure k3d Port Forwarding
 ```shell 
 k3d cluster edit mongocluster --port-add "30001:30001@server:0"
 k3d cluster edit mongocluster --port-add "30002:30002@server:0"
 k3d cluster edit mongocluster --port-add "30003:30003@server:0"
 ```
 
-Once it's done plese update your /etc/hosts file on macbook 
-```csharp
+#### Step 3: Update /etc/hosts File
+Add these entries to your `/etc/hosts` file:
+```
 127.0.0.1 replica-external-0.mongodb.local
 127.0.0.1 replica-external-1.mongodb.local
 127.0.0.1 replica-external-2.mongodb.local
 ```
 
-You also need to update the horizon on ```replica-external.yaml``` to make it works
+#### Step 4: Update Replica Set Configuration
+Update the `replica-external.yaml` file with the correct hostnames:
 ```yaml
-  connectivity:
-    replicaSetHorizons:
-      # So that clients outside the K8S cluster can access the cluster
-      # Must match externalService.annotations.external-dns.alpha.kubernetes.io/hostname
-      # REPLACE THIS - Change to your own Route 53 domain
-      - "external-horizon": "replica-external-0.mongodb.local:30001"
-      - "external-horizon": "replica-external-1.mongodb.local:30002"
-      - "external-horizon": "replica-external-2.mongodb.local:30003"
+connectivity:
+  replicaSetHorizons:
+    # For external client access
+    - "external-horizon": "replica-external-0.mongodb.local:30001"
+    - "external-horizon": "replica-external-1.mongodb.local:30002"
+    - "external-horizon": "replica-external-2.mongodb.local:30003"
 ```
 
-This would be the connection string 
-
+#### Step 5: External Connection String
+Use this connection string for external access:
 ```shell
-mongodb://ituser:ituser@replica-external-0.mongodb.local:30001\
-,replica-external-1.mongodb.local:30002\
-,replica-external-2.mongodb.local:30003\
-/?tls=true&tlsAllowInvalidCertificates=true&\
-replicaSet=replica-external
+mongodb://ituser:ituser@replica-external-0.mongodb.local:30001,replica-external-1.mongodb.local:30002,replica-external-2.mongodb.local:30003/?tls=true&tlsAllowInvalidCertificates=true&replicaSet=replica-external
 ```
 
-## Install MongoDBSearch resources with MCK 
+## MongoDB Search Setup
 
-For MongoDB Search and Vector Search, we're going to use replica-external cluster and MongoDBExternal project.
+This section sets up MongoDB Search and Vector Search using the existing replica-external cluster.
 
-#### Install MongoDB Search 
+#### Step 1: Install MongoDB Search
 ```shell
 kba replica-external-search.yaml
 ```
-This resources will create two users : mdb-admin (root access) and search-sync-source. 
 
-#### Install the mongodb-tools-pod.yaml
+This creates two users:
+- `mdb-admin` (root access)
+- `search-sync-source`
+
+#### Step 2: Recreate NodePort Services
+```shell
+kba services-nodeport.yaml
+```
+
+#### Step 3: Deploy MongoDB Tools Pod
 ```shell 
 kba mongodb-tools-pod.yaml
 ```
-This pod will be useful to check, if we're deploying the MongoDB Search correctly 
 
-#### Shell to the pod
+This pod helps verify the MongoDB Search deployment.
 
-![alt text](img/shell.png)
-To exec shell to pod you can use k9s or VSCode extension, once you're in the shell on the pod please run this command below
+#### Step 4: Access the Tools Pod
+Use k9s or VS Code extension to shell into the pod:
 
-##### Download the dataset 
+![Shell Access](img/shell.png)
+
+#### Step 5: Download Sample Dataset
 ```shell
-curl https://atlas-education.s3.amazonaws.com/sample_mflix.archive \
-  -o /tmp/sample_mflix.archive
-```
-##### Mongorestore the data 
-Configure the enviroment variable, now we're using the root user which is mdb-admin
-```shell
-export MDB_CONNECTION_STRING="mongodb://mdb-admin:adminpassword@\
-replica-external-0.replica-external-svc.mongodb.svc.cluster.local:27017,\
-replica-external-1.replica-external-svc.mongodb.svc.cluster.local:27017,\
-replica-external-2.replica-external-svc.mongodb.svc.cluster.local:27017\
-/?replicaSet=replica-external&tls=true&tlsInsecure=true"
+curl https://atlas-education.s3.amazonaws.com/sample_mflix.archive -o /tmp/sample_mflix.archive
 ```
 
-Mongosh to cluster
+#### Step 6: Configure Environment Variables
+Set up the connection string using the root user:
+```shell
+export MDB_CONNECTION_STRING="mongodb://mdb-admin:adminpassword@replica-external-0.replica-external-svc.mongodb.svc.cluster.local:27017,replica-external-1.replica-external-svc.mongodb.svc.cluster.local:27017,replica-external-2.replica-external-svc.mongodb.svc.cluster.local:27017/?replicaSet=replica-external&tls=true&tlsInsecure=true"
+```
 
+#### Step 7: Test Connection
 ```shell
 mongosh $MDB_CONNECTION_STRING
 ```
 
-##### Run the mongorestore 
+#### Step 8: Restore Sample Data
 ```shell
 mongorestore \
   --archive=/tmp/sample_mflix.archive \
@@ -259,7 +252,7 @@ mongorestore \
   --uri="${MDB_CONNECTION_STRING}"
 ```
 
-##### Create the MongoDB Search index 
+#### Step 9: Create Search Index
 ```shell
 mongosh --quiet \
     "${MDB_CONNECTION_STRING}" \
@@ -267,11 +260,11 @@ mongosh --quiet \
     --eval 'db.movies.createSearchIndex("default", { mappings: { dynamic: true } });'
 ```
 
-##### Run the MongoDB Search query 
+#### Step 10: Test MongoDB Search
+Run this search query:
 ```js
 use sample_mflix;
-```
-```js 
+
 db.movies.aggregate([
   {
     $search: {
@@ -309,44 +302,37 @@ db.movies.aggregate([
 ]);
 ```
 
-If it's succesfull you will get this result 
-
+**Expected result**:
 ```js
 {
-    plot: 'A sports agent stages an unconventional recruitment strategy to get talented Indian cricket players to play Major League Baseball.',
-    genres: [ 'Biography', 'Drama', 'Sport' ],
-    title: 'Million Dollar Arm',
-    released: ISODate('2014-05-16T00:00:00.000Z')
-  }
+  plot: 'A sports agent stages an unconventional recruitment strategy to get talented Indian cricket players to play Major League Baseball.',
+  genres: [ 'Biography', 'Drama', 'Sport' ],
+  title: 'Million Dollar Arm',
+  released: ISODate('2014-05-16T00:00:00.000Z')
+}
 ```
-This would be how it looks like 
 
-![alt text](img/resultsearch.png)
+![Search Results](img/resultsearch.png)
 
-## Additional Project  
-##### Project 2 - replica-user (non-tls) with authentication
+## Additional Project: Non-TLS Replica Set
 
-The new project name would be MongoDBUser, below is how it looks like 
+This section creates a second project called "MongoDBUser" without TLS encryption.
 
-![alt text](img/project2.png)
+![Project 2](img/project2.png)
 
-#### Provision the project
+#### Step 1: Provision Project 2
 ```shell
 kba project2.yaml
 ```
 
-#### Install the replica-user
+#### Step 2: Deploy Non-TLS Replica Set
 ```shell
 kba replica-user.yaml
 ```
 
-The connection string as follow 
+#### Step 3: Connection String for Project 2
 ```shell
-mongodb://admin:adminpassword\
-@replica-user-0.replica-user-svc.mongodb.svc.cluster.local:27017,\
-replica-user-1.replica-user-svc.mongodb.svc.cluster.local:27017,\
-replica-user-2.replica-user-svc.mongodb.svc.cluster.local:27017/\
-?replicaSet=replica-user
+mongodb://admin:adminpassword@replica-user-0.replica-user-svc.mongodb.svc.cluster.local:27017,replica-user-1.replica-user-svc.mongodb.svc.cluster.local:27017,replica-user-2.replica-user-svc.mongodb.svc.cluster.local:27017/?replicaSet=replica-user
 ```
 
 ## License
@@ -355,39 +341,38 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contributing
 
-We welcome contributions to improve this guide! Here's how you can help:
+We welcome contributions! Here's how you can help:
 
 ### How to Contribute
 
-1. **Fork the repository**
-2. **Create a feature branch** (`git checkout -b feature/improvement`)
-3. **Make your changes** and test them thoroughly
-4. **Commit your changes** (`git commit -m 'Add some improvement'`)
-5. **Push to the branch** (`git push origin feature/improvement`)
+1. **Fork** the repository
+2. **Create a feature branch**: `git checkout -b feature/improvement`
+3. **Make and test** your changes thoroughly
+4. **Commit**: `git commit -m 'Add some improvement'`
+5. **Push**: `git push origin feature/improvement`
 6. **Open a Pull Request**
 
 ### Guidelines
 
-- Ensure your changes work with the latest versions of the tools mentioned
-- Test your modifications on both ARM and x86 architectures if possible
-- Update documentation for any new features or changes
-- Follow existing code style and formatting
-- Include clear commit messages
+- Test changes with the latest tool versions
+- Test on both ARM and x86 architectures when possible
+- Update documentation for new features
+- Follow existing code style
+- Write clear commit messages
 
 ### Reporting Issues
 
-If you encounter any problems or have suggestions:
+When reporting problems:
 
 1. Check existing issues first
 2. Create a new issue with:
-    - Clear description of the problem
-    - Steps to reproduce
-    - Your environment details (OS, tool versions)
-    - Expected vs actual behavior
+   - Clear problem description
+   - Steps to reproduce
+   - Environment details (OS, tool versions)
+   - Expected vs actual behavior
 
-### Support
+### Getting Help
 
-For questions or help:
 - Open an issue for bugs or feature requests
-- Check the official MongoDB Kubernetes documentation
-- Consult the k3d and kubectl documentation for cluster-related issues
+- Check official MongoDB Kubernetes documentation
+- Consult k3d and kubectl documentation for cluster issues
