@@ -28,11 +28,23 @@ alias kbd="kubectl delete -f"
 ```shell
 brew install k3d
 ```
+**Create the local network**:
+```shell
+docker network create --driver bridge --subnet 10.0.0.0/24 --gateway 10.0.0.1 local
+```
 
 **Create the cluster**:
 ```shell
 k3d cluster create mongocluster --agents 3 -p "8081:8080@server:0" --network local
 ```
+
+> ⚠️ **Warning**: Due to the k3s [bug](https://github.com/k3s-io/k3s/issues/12844) please use this parameters. Please check if the lastest images already included the fix 
+
+Temporary solution : 
+```shell
+k3d cluster create mongocluster --agents 3 -p "8081:8080@server:0" --network local --image "rancher/k3s:v1.31.6-k3s1
+```
+
 ![Container Setup](img/container.png)
 
 ## MongoDB Connector for Kubernetes (MCK) Setup
